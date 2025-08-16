@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Python Blockly IDE - Xịn</title>
+<script src="https://unpkg.com/blockly/blockly.min.js"></script>
+<script src="https://unpkg.com/skulpt/dist/skulpt.min.js"></script>
+<script src="https://unpkg.com/skulpt/dist/skulpt-stdlib.js"></script>
+<style>
+  body { margin:0; font-family: Arial, sans-serif; }
+  header { background:#333; color:#fff; padding:10px; text-align:center; }
+  #container { display:flex; height: calc(100vh - 50px); }
+  #sidebar { width: 250px; border-right: 1px solid #ccc; padding:10px; box-sizing:border-box; overflow:auto; }
+  #workspaceArea { flex:1; display:flex; flex-direction:column; }
+  #blocklyDiv { flex:1; }
+  #outputDiv { height:150px; border-top:1px solid #ccc; padding:10px; background:#f9f9f9; overflow:auto; white-space:pre-wrap; }
+  button { margin:5px 0; padding:5px; width:100%; }
+</style>
+</head>
+<body>
+
+<header><h1>Python Blockly IDE</h1></header>
+
+<div id="container">
+  <div id="sidebar">
+    <button onclick="newProject()">Tạo dự án mới</button>
+    <h3>Dự án của bạn</h3>
+    <ul id="projectList"></ul>
+  </div>
+
+  <div id="workspaceArea">
+    <div id="blocklyDiv"></div>
+    <div style="display:flex;">
+      <button onclick="runCode()">Chạy Python</button>
+      <button onclick="saveProject()">Lưu dự án</button>
+      <button onclick="loadProject()">Load dự án</button>
+    </div>
+    <div id="outputDiv">Output sẽ hiển thị tại đây...</div>
+  </div>
+</div>
+
+<script>
+  // ------------------ Blockly ------------------
+  var toolbox = `
+  <xml>
+    <category name="Logic" colour="%{BKY_LOGIC_HUE}">
+      <block type="controls_if"></block>
+      <block type="logic_compare"></block>
+      <block type="logic_operation"></block>
+      <block type="logic_negate"></block>
+      <block type="logic_boolean"></block>
+    </category>
+    <category name="Loops" colour="%{BKY_LOOPS_HUE}">
+      <block type="controls_repeat_ext">
+        <value name="TIMES"><shadow type="math_number"><field name="NUM">5</field></shadow></value>
+      </block>
+      <block type="controls_whileUntil"></block>
+      <block type="controls_for"></block>
+      <block type="controls_forEach"></block>
+    </category>
+    <category name="Math" colour="%{BKY_MATH_HUE}">
+      <block type="math_number"></block>
+      <block type="math_arithmetic"></block>
+      <block type="math_single"></block>
+      <block type="math_trig"></block>
+      <block type="math_constant"></block>
+      <block type="math_number_property"></block>
+      <block type="math_round"></block>
+      <block type="math_on_list"></block>
+      <block type="math_modulo"></block>
+      <block type="math_random_int"></block>
+      <block type="math_random_float"></block>
+    </category>
+    <category name="Text" colour="%{BKY_TEXTS_HUE}">
+      <block type="text"></block>
+      <block type="text_print"></block>
+      <block type="text_length"></block>
+      <block type="text_isEmpty"></block>
+      <block type="text_join"></block>
+      <block type="text_indexOf"></block>
+      <block type="text_charAt"></block>
+      <block type="text_getSubstring"></block>
+      <block type="text_changeCase"></block>
+      <block type="text_contains"></block>
+    </category>
+    <category name="Variables" colour="%{BKY_VARIABLES_HUE}" custom="VARIABLE"></category>
+    <category name="Functions" colour="%{BKY_PROCEDURES_HUE}" custom="PROCEDURE"></category>
+    <category name="Lists" colour="%{BKY_LISTS_HUE}">
+      <block type="lists_create_empty"></block>
+      <block type="lists_create_with"></block>
+      <block type="lists_repeat"></block>
+      <block type="lists_length"></block>
+      <block type="lists_isEmpty"></block>
+      <block type="lists_indexOf"></block>
+      <block type="lists_getIndex"></block>
+      <block type="lists_setIndex"></block>
+      <block type="lists_getSublist"></block>
+      <block type="lists_split"></block>
+      <block type="lists_sort"></block>
+    </category>
+    <category name="Dictionaries" colour="290">
+      <block type="dict_create"></block>
+      <block type="dict_set"></block>
+      <block type="dict_get"></block>
+      <block type="dict_keys"></block>
+      <block type="dict_values"></block>
+    </category>
+  </xml>
+  `;
+  var workspace = Blockly.inject('blocklyDiv', {toolbox: toolbox});
+
+  // ------------------ Local Storage Projects ------------------
+  function getProjects() {
+    return JSON.parse(localStorage.getItem('projects') || '{}');
+  }
+
+  function saveProject() {
+    var name = prompt("Tên dự án:");
+    if(!name) return;
+    var xml = Blockly.Xml.workspaceToDom(workspace);
+    var xml_text = Blockly.Xml.domToText(xml);
+    var projects = getProjects();
+    projects[name] = xml_text;
+    localStorage.setItem('projects', JSON.stringify(projects));
+    alert("Đã lưu dự án: " + name);
+    refreshProjectList();
+  }
+
+  function loadProject() {
+    var name = prompt("Nhập tên dự án để load:");
+    var projects = getProjects();
+    if(projects[name]){
+      workspace.clear();
+      var xml = Blockly.Xml.textToDom(projects[name]);
+      Blockly.Xml.domToWorkspace(xml, workspace);
+      alert("Đã load dự án: " + name);
+    } else alert("Không tìm thấy dự án");
+  }
+
+  function newProject() {
+    if(confirm("Xóa workspace hiện tại và tạo dự án mới?")){
+      workspace.clear();
+    }
+  }
+
+  function refreshProjectList() {
+    var ul = document.getElementById("projectList");
+    ul.innerHTML = '';
+    var projects = getProjects();
+    for(var name in projects){
+      var li = document.createElement('li');
+      li.textContent = name;
+      li.style.cursor = 'pointer';
+      li.onclick = function(n){ return function(){
+        var xml = Blockly.Xml.textToDom(projects[n]);
+        workspace.clear();
+        Blockly.Xml.domToWorkspace(xml, workspace);
+      }}(name);
+      ul.appendChild(li);
+    }
+  }
+  refreshProjectList();
+
+  // ------------------ Run Python Code ------------------
+  function runCode() {
+    var code = Blockly.Python.workspaceToCode(workspace);
+
+    function outf(text) {
+      document.getElementById("outputDiv").innerHTML += text + "\n";
+    }
+
+    function builtinRead(x) {
+      if (Sk.builtinFiles === undefined || Sk.builtinFiles["files"][x] === undefined)
+          throw "File not found: '" + x + "'";
+      return Sk.builtinFiles["files"][x];
+    }
+
+    document.getElementById("outputDiv").innerHTML = "";
+    Sk.configure({output:outf, read:builtinRead});
+    Sk.misceval.asyncToPromise(function() {
+      return Sk.importMainWithBody("<stdin>", false, code, true);
+    }).catch(function(err){
+      document.getElementById("outputDiv").innerHTML = err.toString();
+    });
+  }
+</script>
+
+</body>
+  </html>
